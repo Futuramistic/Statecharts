@@ -88,10 +88,10 @@ class finite_state_automaton{
                    st << "\tq" << stateAndTransitions.first << " -> q" << targetState << "[";
                    if(cluster2!=0&&cluster2!=-1){
                          st<<"lhead=\"clusterR"<<cluster2<<"\"";
-                         clusterLabels[cluster2]=transition.first;
                    }
                    if(cluster1!=0&&cluster1!=-1){
                          st<<"ltail=\"clusterR"<<cluster1<<"\"";
+                         clusterLabels[cluster1]=transition.first;
                    }
                    st<<"];\n";
                }
@@ -264,6 +264,6 @@ class finite_state_automaton{
 
   bool nodeIsExpandable(int node){
     set<int> sinks = getSinks(*result);
-    return sinks.find(node)==sinks.end() && node<result->state_count;
+    return sinks.find(node)==sinks.end() && node<result->state_count && node>0;
   }
 };

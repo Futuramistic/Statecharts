@@ -31,7 +31,10 @@ class Learner{
       if(automata->states->size()==0){
         automata->states->push_back(new Cluster(automata->result->state_count,-1,0));
       }
-      learn(true);
+      //Save previously smallest accepted word and clear knowledge
+      list<int> acceptedWord = getSmallestAcceptedWord();
+      base.clear();
+      learn(true,node,acceptedWord);
       int states = automata->result->state_count;
       int statesNotInCluster= 0;
       for(int i=0;i<automata->states->size();i++){
@@ -68,7 +71,11 @@ class Learner{
       automata->states->push_back(new Cluster(statesInNewCluster,node,oldAlphabetSize));
     }
 
-    void learn(bool expanding=false){
+    /**
+    *  Function to learn and expand automata
+    *  Parameters are only used during the expansion to answer few queries automatically.
+    **/
+    void learn(bool expanding=false, int node=0, list<int> acceptedWord=list<int>()){
       Conjecture* result = NULL;
       angluin_simple_table<bool> algorithm(&base,NULL,teacher->getAlphabetSize());
       do {
@@ -77,8 +84,7 @@ class Learner{
           list<list<int> > queries = base.get_queries();
           list<list<int> >::iterator li;
           for (li = queries.begin(); li != queries.end(); li++) {
-            //expanding and answer found
-            if(expanding&&tryToAnswer(*li)){
+            if(expanding&&tryToAnswer(*li,node,acceptedWord)){
               base.add_knowledge(*li, false);
             }
             else{
@@ -103,9 +109,6 @@ class Learner{
 
     void display(){
       cout << endl << "Result: "<< endl<< automata->finite_state_automaton::visualize()<<endl;
-      //algorithm->print(cout);
-      //mapping();
-      //knowledge();
     }
 
     void knowledge(){
@@ -120,23 +123,15 @@ class Learner{
       }
     }
 
-    bool tryToAnswer(list<int> word){
-      std::vector<list<int>> acceptedWords;
-      for(auto kb=base.begin(); kb!=base.end(); ++kb){
-        if(kb->get_answer()==1){
-          acceptedWords.push_back(kb->get_word());
-        }
-      }
-      list<int> smallestAccepted=acceptedWords.at(0);
-      for(int i=0; i<acceptedWords.size(); ++i){
-        if(smallestAccepted.size()>acceptedWords.at(i).size()){
-          smallestAccepted=acceptedWords.at(i);
-        }
-      }
+    /**
+    * Try to answer returns true wether we know if the word can be rejected
+    **/
+    bool tryToAnswer(list<int>& word, int& node, list<int>& smallestAccepted){
+      //New word has to be larger than the smallest previously accepted
       if(word.size()<=smallestAccepted.size()){
         return true;
       }
-      if(!hasMinimalPrefix(word,smallestAccepted)){
+      if(!hasMinimalPrefix(word,smallestAccepted,node)){
         return true;
       }
       if(goesThroughSink(word)){
@@ -145,12 +140,36 @@ class Learner{
       return false;
     }
 
-    bool hasMinimalPrefix(list<int>word, list<int>& minimalWord) const{
+    list<int> getSmallestAcceptedWord(){
+      std::vector<list<int>> acceptedWords=getAcceptedWords();
+      list<int> smallestAccepted=acceptedWords.at(0);
+      for(int i=0; i<acceptedWords.size(); ++i){
+        if(smallestAccepted.size()>acceptedWords.at(i).size()){
+          smallestAccepted=acceptedWords.at(i);
+        }
+      }
+      return smallestAccepted;
+    }
+
+    std::vector<list<int>> getAcceptedWords(){
+      std::vector<list<int>> acceptedWords;
+      for(auto kb=base.begin(); kb!=base.end(); ++kb){
+        if(kb->get_answer()==1){
+          acceptedWords.push_back(kb->get_word());
+        }
+      }
+      return acceptedWords;
+    }
+
+    bool hasMinimalPrefix(list<int>& word, list<int>& minimalWord, int& node) const{
       int minimalNodeExpanded = automata->states->at(0)->stateExtended;
-      for(int i=0; i<automata->states->size(); i++){
+      for(int i=0; i<automata->states->size(); ++i){
         if(minimalNodeExpanded>automata->states->at(i)->stateExtended){
           minimalNodeExpanded=automata->states->at(i)->stateExtended;
         }
+      }
+      if(node<minimalNodeExpanded){
+        minimalNodeExpanded=node;
       }
       auto mini = minimalWord.begin();
       auto check = word.begin();
