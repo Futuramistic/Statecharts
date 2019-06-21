@@ -79,7 +79,7 @@ public:
     return answer.compare("1") == 0 ? true : false;
   }
   void expandAlphabet(){
-    alphabetsize+=1;
+    alphabetsize+=2;
   }
   int getAlphabetSize(){
     return alphabetsize;

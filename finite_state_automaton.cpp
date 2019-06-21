@@ -41,7 +41,7 @@ class finite_state_automaton{
     map<int,int> nodesLabels;
     map<int,int> clusterLabels;
     nodesLabels[0]=-1;
-    const set<int> sinks_set(getSinks(*result));
+    set<int> sinks_set(getSinks(*result));
     st<<"digraph finite_state_machine{\n"
            "\tcompound=true;\n"
            "\trankdir=LR;\n"
@@ -57,10 +57,12 @@ class finite_state_automaton{
       //shown nodes
       map<int, bool>::const_iterator oi=result->output_mapping.begin();
       for(;oi!=result->output_mapping.end();++oi){
-        st << "\tnode [shape=record, style=\"\", color=black";
-        st<<"];";
-        st<< " q" << oi->first;
-        st << ";\n";
+        if(sinks_set.find(oi->first)==sinks_set.end()){
+          st << "\tnode [shape=record, style=\"\", color=black";
+          st<<"];";
+          st<< " q" << oi->first;
+          st << ";\n";
+        }
       }
       st<<"\n";
       //initial transition
@@ -110,14 +112,15 @@ class finite_state_automaton{
       int cluster=0;
       int state=0;
       set<int> clustersShown;
-      st<<displayCluster(cluster,oi,state,clustersShown,clusterLabels);
+      int sinksFound=0;
+      st<<displayCluster(cluster,oi,state,clustersShown,clusterLabels,sinks_set,sinksFound);
 
       st<<"}\n";
       getStatesInfo();
     return st.str();
   }
 
-  const string displayCluster(int cluster, map<int, bool>::const_iterator& oi,int& statesShown,set<int>& clustersShown, map<int,int>& clusterLabels) const{
+  const string displayCluster(int cluster, map<int, bool>::const_iterator& oi,int& statesShown,set<int>& clustersShown, map<int,int>& clusterLabels, set<int> sinkStates, int& sinksFound) const{
     stringstream st;
     int stateInCluster=0;
     st<<"\n\tsubgraph clusterR"<<cluster<<" {";
@@ -133,7 +136,7 @@ class finite_state_automaton{
         for(int i=0;i<states->size();++i){
           if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
               clustersShown.insert(i);
-              st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels);
+              st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
           }
         }
       }
@@ -156,11 +159,13 @@ class finite_state_automaton{
           for(int i=0;i<states->size();++i){
             if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
                 clustersShown.insert(i);
-                st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels);
+                st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
             }
           }
         }
-        st<<"q"<<oi->first<<"; ";
+        if(sinkStates.find(oi->first)==sinkStates.end()){
+          st<<"q"<<oi->first<<"; ";
+        }
         --oi;
         ++stateInCluster;
         ++statesShown;
@@ -174,7 +179,7 @@ class finite_state_automaton{
                   clustersShown.insert(i);
                   shown=true;
                   st<<"}\n";
-                  st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels);
+                  st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
               }
             }
           }
