@@ -76,27 +76,7 @@ class finite_state_automaton{
           for (const auto& targetState : transition.second){
             bool notSinks = sinks_set.find(stateAndTransitions.first)==sinks_set.end() && sinks_set.find(targetState)==sinks_set.end();
              if(notSinks && targetState!=0){
-                int state1position = 0;
-                int state2position=result->state_count-targetState;
-                if(stateAndTransitions.first!=0){
-                  state1position=result->state_count-stateAndTransitions.first;
-                }
-                int cluster1 = getClusterState(state1position);
-                int cluster2 = getClusterState(state2position);
-                if(cluster1==cluster2){
-                   st << "\tq" << stateAndTransitions.first << " -> q" << targetState << "\n";
-                 }
-                else{
-                   st << "\tq" << stateAndTransitions.first << " -> q" << targetState << "[";
-                   if(cluster2!=0&&cluster2!=-1){
-                         st<<"lhead=\"clusterR"<<cluster2<<"\"";
-                   }
-                   if(cluster1!=0&&cluster1!=-1){
-                         st<<"ltail=\"clusterR"<<cluster1<<"\"";
-                         clusterLabels[cluster1]=transition.first;
-                   }
-                   st<<"];\n";
-               }
+               st << "\tq" << stateAndTransitions.first << " -> q" << targetState << "\n";
                nodesLabels[targetState]=transition.first;
              }
            }
@@ -125,6 +105,11 @@ class finite_state_automaton{
     int stateInCluster=0;
     st<<"\n\tsubgraph clusterR"<<cluster<<" {";
     int statesNumber = 0;
+    if(sinkStates.size()!=0 && sinksFound==0){
+      oi = result->output_mapping.begin();
+      std::advance(oi,*sinkStates.rbegin()-1);
+      ++sinksFound;
+    }
     //State 0 is unexpandable and always belongs to cluster 0
     if(cluster==0){
       st<<"q0; ";
@@ -159,11 +144,23 @@ class finite_state_automaton{
           for(int i=0;i<states->size();++i){
             if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
                 clustersShown.insert(i);
+                if(sinksFound!=0){
+                  oi=--result->output_mapping.end();
+                }
                 st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
             }
           }
         }
         if(sinkStates.find(oi->first)==sinkStates.end()){
+          st<<"q"<<oi->first<<"; ";
+        }
+        else if(sinkStates.find(oi->first)!=sinkStates.end()&&sinkStates.size()!=0){
+          //Simulate showing sink, as new cluster contains it, but cannot show it
+          ++statesShown;
+          ++stateInCluster;
+          //Advance before the sink state
+          int advanced = -(states->at(cluster)->stateExtended);
+          std::advance(oi, advanced);
           st<<"q"<<oi->first<<"; ";
         }
         --oi;
