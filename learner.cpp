@@ -68,6 +68,11 @@ class Learner{
       else{
           automata->states->at(fatherCluster)->statesNumber--;
       }
+      //Do not consider sinks
+      /**for(auto sink: getSinks(*automata->result)){
+          int cluster = automata->getClusterState(sink);
+          --automata->states->at(cluster)->statesNumber;
+      }**/
       automata->states->push_back(new Cluster(statesInNewCluster,node,oldAlphabetSize));
     }
 

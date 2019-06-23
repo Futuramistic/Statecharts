@@ -144,9 +144,6 @@ class finite_state_automaton{
           for(int i=0;i<states->size();++i){
             if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
                 clustersShown.insert(i);
-                if(sinksFound!=0){
-                  oi=--result->output_mapping.end();
-                }
                 st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
             }
           }
@@ -154,19 +151,23 @@ class finite_state_automaton{
         if(sinkStates.find(oi->first)==sinkStates.end()){
           st<<"q"<<oi->first<<"; ";
         }
-        else if(sinkStates.find(oi->first)!=sinkStates.end()&&sinkStates.size()!=0){
-          //Simulate showing sink, as new cluster contains it, but cannot show it
-          ++statesShown;
-          ++stateInCluster;
-          //Advance before the sink state
-          int advanced = -(states->at(cluster)->stateExtended);
-          std::advance(oi, advanced);
-          st<<"q"<<oi->first<<"; ";
-        }
         --oi;
         ++stateInCluster;
         ++statesShown;
+        //if the next state is in the middle (minus 1 for sink state) -> flip back iterator
+        if(sinkStates.size()!=0&&sinksFound>0&&stateInCluster==((states->at(cluster)->statesNumber-1)/2)&&getClusterState(statesShown)==cluster){
+            oi=--result->output_mapping.end();
+            --sinksFound;
+            //Simulate Sink inserted
+            ++stateInCluster;
+            ++statesShown;
+        }
         if(stateInCluster==states->at(cluster)->statesNumber){
+          if(sinkStates.size()!=0){
+            sinkStates.erase(sinkStates.begin());
+            int advancer = (states->at(cluster)->statesNumber-1)/2 + states->at(cluster)->stateExtended;
+            std::advance(oi,-(advancer));
+          }
           int statesNumber = 0;
           bool shown = false;
           while(statesNumber!=statesShown){
