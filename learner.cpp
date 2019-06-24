@@ -32,9 +32,10 @@ class Learner{
         automata->states->push_back(new Cluster(automata->result->state_count,-1,0));
       }
       //Save previously smallest accepted word and clear knowledge
-      list<int> acceptedWord = getSmallestAcceptedWord();
+      //list<int> acceptedWord = getSmallestAcceptedWord();
+      base.clear_queries();
       base.clear();
-      learn(true,node,acceptedWord);
+      learn(true,node);
       automata->acceptedWords=getAcceptedWords();
       automata->getAllStatesUsed();
       int states = automata->result->state_count;
@@ -163,6 +164,11 @@ class Learner{
     std::vector<list<int>> getAcceptedWords(){
       std::vector<list<int>> acceptedWords;
       for(auto kb=base.begin(); kb!=base.end(); ++kb){
+        if(kb->get_answer()){
+          acceptedWords.push_back(kb->get_word());
+        }
+      }
+      for(auto kb=base.qbegin(); kb!=base.qend(); ++kb){
         if(kb->get_answer()){
           acceptedWords.push_back(kb->get_word());
         }

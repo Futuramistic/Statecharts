@@ -94,15 +94,15 @@ class finite_state_automaton{
       int cluster=0;
       int state=0;
       set<int> clustersShown;
-      int sinksFound=0;
-      st<<displayCluster(cluster,state,clustersShown);
+      int wordPointer=0;
+      st<<displayCluster(cluster,state,clustersShown,wordPointer);
 
       st<<"}\n";
       getStatesInfo();
     return st.str();
   }
 
-  const string displayCluster(int cluster,int& statesShown,set<int>& clustersShown) const{
+  const string displayCluster(int cluster,int& statesShown,set<int>& clustersShown, int& wordPointer) const{
     stringstream st;
 
     st<<"\n\tsubgraph clusterR"<<cluster<<" {";
@@ -117,22 +117,24 @@ class finite_state_automaton{
       st<<"q0; ";
       ++statesInCluster;
       ++statesShown;
+      ++wordPointer;
       int statesNumber = 0;
       while(statesNumber!=statesShown){
         statesNumber=statesShown;
         for(int i=0;i<states->size();++i){
           if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
               clustersShown.insert(i);
-              st<<displayCluster(i,statesShown,clustersShown);
+              st<<displayCluster(i,statesShown,clustersShown,wordPointer);
           }
         }
       }
     }
+    set<int> sinks = getSinks(*result);
     while(statesInCluster<states->at(cluster)->statesNumber){
       set<int> statesOfLetter;
       for(auto statesCluster=statesUsed.begin(); statesCluster!=statesUsed.end(); statesCluster++){
-        if(statesShown<statesCluster->size()){
-          statesOfLetter.insert(statesCluster->at(statesShown));
+        if(wordPointer<statesCluster->size()&&sinks.find(statesCluster->at(wordPointer))==sinks.end()){
+          statesOfLetter.insert(statesCluster->at(wordPointer));
         }
       }
       for(int state: statesOfLetter){
@@ -143,7 +145,7 @@ class finite_state_automaton{
           for(int i=0;i<states->size();i++){
             if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
                 clustersShown.insert(i);
-                st<<displayCluster(i,statesShown,clustersShown);
+                st<<displayCluster(i,statesShown,clustersShown,wordPointer);
                 cluster=true;
             }
           }
@@ -155,6 +157,7 @@ class finite_state_automaton{
         statesShown++;
         statesInCluster++;
       }
+      ++wordPointer;
       if(statesInCluster==states->at(cluster)->statesNumber){
           bool shown = false;
           int statesNumber=0;
@@ -165,7 +168,7 @@ class finite_state_automaton{
                 clustersShown.insert(i);
                 shown=true;
                 st<<"}\n";
-                st<<displayCluster(i,statesShown,clustersShown);
+                st<<displayCluster(i,statesShown,clustersShown,wordPointer);
               }
           }
         }
@@ -252,6 +255,11 @@ class finite_state_automaton{
     }
     cout<<"STATE USED IN WORDS: "<<endl;
     for(int i=0;i<statesUsed.size();i++){
+      cout<<"Word: ";
+      for(int letter: acceptedWords.at(i)){
+        cout<<letter<<" ";
+      }
+      cout<<" STATES: ";
       for(auto state=statesUsed.at(i).begin(); state!=statesUsed.at(i).end();state++){
         cout<<*state<<" ";
       }
@@ -276,7 +284,7 @@ class finite_state_automaton{
       }
       else{
         for(auto sink: sinks){
-          if(std::find(wordStates.begin(), wordStates.end(), *sink)==wordStates.end()){
+          if(std::find(wordStates.begin(), wordStates.end(), sink)==wordStates.end()){
             statesUsed.push_back(wordStates);
           }
         }
