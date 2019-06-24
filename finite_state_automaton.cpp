@@ -10,13 +10,13 @@ using namespace libalf;
 
 class Cluster{
   public:
-  //States in cluster
-  int statesNumber;
   //linking node to the next cluster
   int stateExtended;
   //first letter of new alphabet
   int alphabetConnector;
-  Cluster(int states, int extended, int connector){
+  //
+  int statesNumber;
+  Cluster(int states,int extended, int connector){
     statesNumber=states;
     stateExtended=extended;
     alphabetConnector=connector;
@@ -27,6 +27,8 @@ class finite_state_automaton{
   public:
   std::vector<Cluster*>* states;
   finite_automaton* result;
+  std::vector<list<int>> acceptedWords;
+  std::vector<std::vector<int>> statesUsed;
   finite_state_automaton(){
     states = new std::vector<Cluster*>();
   }
@@ -93,27 +95,27 @@ class finite_state_automaton{
       int state=0;
       set<int> clustersShown;
       int sinksFound=0;
-      st<<displayCluster(cluster,oi,state,clustersShown,clusterLabels,sinks_set,sinksFound);
+      st<<displayCluster(cluster,state,clustersShown);
 
       st<<"}\n";
       getStatesInfo();
     return st.str();
   }
 
-  const string displayCluster(int cluster, map<int, bool>::const_iterator& oi,int& statesShown,set<int>& clustersShown, map<int,int>& clusterLabels, set<int> sinkStates, int& sinksFound) const{
+  const string displayCluster(int cluster,int& statesShown,set<int>& clustersShown) const{
     stringstream st;
-    int stateInCluster=0;
+
     st<<"\n\tsubgraph clusterR"<<cluster<<" {";
-    int statesNumber = 0;
-    if(sinkStates.size()!=0 && sinksFound==0){
-      oi = result->output_mapping.begin();
-      std::advance(oi,*sinkStates.rbegin()-1);
-      ++sinksFound;
+    int statesInCluster = 0;
+    if(states->size()==0){
+      for(int i=0;i<result->state_count;++i){
+        st<<"q"<<i<<"; ";
+      }
+      return st.str();
     }
-    //State 0 is unexpandable and always belongs to cluster 0
     if(cluster==0){
       st<<"q0; ";
-      ++stateInCluster;
+      ++statesInCluster;
       ++statesShown;
       int statesNumber = 0;
       while(statesNumber!=statesShown){
@@ -121,69 +123,54 @@ class finite_state_automaton{
         for(int i=0;i<states->size();++i){
           if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
               clustersShown.insert(i);
-              st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
+              st<<displayCluster(i,statesShown,clustersShown);
           }
         }
       }
     }
-    else{
-      st<<"label=\""<<clusterLabels[cluster]<<"\";";
-    }
-    if(states->size()==0){
-      while(oi!=result->output_mapping.begin()){
-        st<<"q"<<oi->first<<"; ";
-        --oi;
+    while(statesInCluster<states->at(cluster)->statesNumber){
+      set<int> statesOfLetter;
+      for(auto statesCluster=statesUsed.begin(); statesCluster!=statesUsed.end(); statesCluster++){
+        if(statesShown<statesCluster->size()){
+          statesOfLetter.insert(statesCluster->at(statesShown));
+        }
       }
-      st<<"}\n";
-    }
-    else{
-      while(stateInCluster<states->at(cluster)->statesNumber){
-        int statesNumber = 0;
+      for(int state: statesOfLetter){
+        int statesNumber=0;
+        bool cluster=false;
         while(statesNumber!=statesShown){
           statesNumber=statesShown;
-          for(int i=0;i<states->size();++i){
+          for(int i=0;i<states->size();i++){
             if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
                 clustersShown.insert(i);
-                st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
+                st<<displayCluster(i,statesShown,clustersShown);
+                cluster=true;
             }
           }
         }
-        if(sinkStates.find(oi->first)==sinkStates.end()){
-          st<<"q"<<oi->first<<"; ";
+        if(cluster){
+          break;
         }
-        --oi;
-        ++stateInCluster;
-        ++statesShown;
-        //if the next state is in the middle (minus 1 for sink state) -> flip back iterator
-        if(sinkStates.size()!=0&&sinksFound>0&&stateInCluster==((states->at(cluster)->statesNumber-1)/2)&&getClusterState(statesShown)==cluster){
-            oi=--result->output_mapping.end();
-            --sinksFound;
-            //Simulate Sink inserted
-            ++stateInCluster;
-            ++statesShown;
-        }
-        if(stateInCluster==states->at(cluster)->statesNumber){
-          if(sinkStates.size()!=0){
-            sinkStates.erase(sinkStates.begin());
-            int advancer = (states->at(cluster)->statesNumber-1)/2 + states->at(cluster)->stateExtended;
-            std::advance(oi,-(advancer));
-          }
-          int statesNumber = 0;
+        st<<"q"<<state<<"; ";
+        statesShown++;
+        statesInCluster++;
+      }
+      if(statesInCluster==states->at(cluster)->statesNumber){
           bool shown = false;
+          int statesNumber=0;
           while(statesNumber!=statesShown){
-            statesNumber=statesShown;
-            for(int i=0;i<states->size();++i){
-              if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
-                  clustersShown.insert(i);
-                  shown=true;
-                  st<<"}\n";
-                  st<<displayCluster(i,oi,statesShown,clustersShown,clusterLabels,sinkStates,sinksFound);
+          statesNumber=statesShown;
+          for(int i=0;i<states->size();i++){
+            if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
+                clustersShown.insert(i);
+                shown=true;
+                st<<"}\n";
+                st<<displayCluster(i,statesShown,clustersShown);
               }
-            }
           }
-          if(!shown){
+        }
+        if(!shown){
           st<<"}\n";
-          }
         }
       }
     }
@@ -263,6 +250,29 @@ class finite_state_automaton{
       cout<<"STATE EXTENDED: "<<states->at(i)->stateExtended<<" , NODES IN CLUSTER: ";
       cout<<states->at(i)->statesNumber<<" , ALPHABET CONNECTOR: "<<states->at(i)->alphabetConnector<<endl<<endl;
     }
+    cout<<"STATE USED IN WORDS: "<<endl;
+    for(int i=0;i<statesUsed.size();i++){
+      for(auto state=statesUsed.at(i).begin(); state!=statesUsed.at(i).end();state++){
+        cout<<*state<<" ";
+      }
+      cout<<endl;
+    }
+  }
+
+  void getAllStatesUsed(){
+    statesUsed.clear();
+    for(auto word = acceptedWords.begin(); word!=acceptedWords.end(); ++word){
+      std::vector<int> wordStates;
+      for(auto letter = word->begin(); letter!=word->end();++letter){
+        set<int> letterStates = {0};
+        result->run(letterStates, word->begin(), letter);
+        wordStates.insert(wordStates.end(),letterStates.begin(),letterStates.end());
+      }
+      wordStates.push_back(1);
+      wordStates.erase( std::unique( wordStates.begin(), wordStates.end() ), wordStates.end() );
+      statesUsed.push_back(wordStates);
+    }
+    statesUsed.erase( std::unique( statesUsed.begin(), statesUsed.end() ), statesUsed.end() );
   }
 
   bool nodeIsExpandable(int node){

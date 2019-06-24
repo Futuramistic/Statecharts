@@ -35,6 +35,8 @@ class Learner{
       list<int> acceptedWord = getSmallestAcceptedWord();
       base.clear();
       learn(true,node,acceptedWord);
+      automata->acceptedWords=getAcceptedWords();
+      automata->getAllStatesUsed();
       int states = automata->result->state_count;
       int statesNotInCluster= 0;
       for(int i=0;i<automata->states->size();i++){
@@ -74,6 +76,11 @@ class Learner{
           --automata->states->at(cluster)->statesNumber;
       }**/
       automata->states->push_back(new Cluster(statesInNewCluster,node,oldAlphabetSize));
+      automata->getStatesInfo();
+      for(auto sink: getSinks(*automata->result)){
+        int cluster = automata->getClusterState(sink);
+        automata->states->at(cluster)->statesNumber--;
+      }
     }
 
     /**
@@ -133,9 +140,6 @@ class Learner{
     **/
     bool tryToAnswer(list<int>& word, int& node, list<int>& smallestAccepted){
       //New word has to be larger than the smallest previously accepted
-      if(word.size()<=smallestAccepted.size()){
-        return true;
-      }
       if(!hasMinimalPrefix(word,smallestAccepted,node)){
         return true;
       }
@@ -159,7 +163,7 @@ class Learner{
     std::vector<list<int>> getAcceptedWords(){
       std::vector<list<int>> acceptedWords;
       for(auto kb=base.begin(); kb!=base.end(); ++kb){
-        if(kb->get_answer()==1){
+        if(kb->get_answer()){
           acceptedWords.push_back(kb->get_word());
         }
       }
