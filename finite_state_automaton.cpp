@@ -261,6 +261,7 @@ class finite_state_automaton{
 
   void getAllStatesUsed(){
     statesUsed.clear();
+    set<int> sinks = getSinks(*result);
     for(auto word = acceptedWords.begin(); word!=acceptedWords.end(); ++word){
       std::vector<int> wordStates;
       for(auto letter = word->begin(); letter!=word->end();++letter){
@@ -270,7 +271,16 @@ class finite_state_automaton{
       }
       wordStates.push_back(1);
       wordStates.erase( std::unique( wordStates.begin(), wordStates.end() ), wordStates.end() );
-      statesUsed.push_back(wordStates);
+      if(sinks.size()==0){
+        statesUsed.push_back(wordStates);
+      }
+      else{
+        for(auto sink: sinks){
+          if(std::find(wordStates.begin(), wordStates.end(), *sink)==wordStates.end()){
+            statesUsed.push_back(wordStates);
+          }
+        }
+      }
     }
     statesUsed.erase( std::unique( statesUsed.begin(), statesUsed.end() ), statesUsed.end() );
   }
