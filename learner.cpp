@@ -71,18 +71,8 @@ class Learner{
       }
       automata->states->push_back(new Cluster(statesInNewCluster,node,oldAlphabetSize));
 
-      if(getSinks(*automata->result).size()!=0){
-        bool sinkFound = false;
-        for(int i=0; i<automata->states->size();++i){
-          if(automata->states->at(i)->sink){
-            sinkFound=true;
-          }
-        }
-        if(!sinkFound){
-            automata->states->at(automata->states->size()-1)->statesNumber--;
-            automata->states->at(automata->states->size()-1)->sink=true;
-        }
-      }
+      automata->clearSinks();
+      automata->clearGhostStates();
       automata->getStatesInfo();
     }
 

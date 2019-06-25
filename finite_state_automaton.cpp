@@ -10,13 +10,16 @@ using namespace libalf;
 
 class Cluster{
   public:
-  //linking node to the next cluster
+  //Linking node to the next cluster
   int stateExtended;
-  //first letter of new alphabet
+  //First letter of new alphabet
   int alphabetConnector;
-  //
+  //Number of states in cluster
   int statesNumber;
+  //If sink state is present
   bool sink;
+  //Number of ghost states -> added artificially to the visualization
+  int ghostStates;
   Cluster(int states,int extended, int connector){
     statesNumber=states;
     stateExtended=extended;
@@ -74,15 +77,37 @@ class finite_state_automaton{
       for(sti = result->initial_states.begin(); sti != result->initial_states.end(); ++sti)
        			st<< "\tiq" << *sti << " -> q" << *sti << " [color=blue];\n";
 
-      //transitions
-      set<int> clusterTransitions;
+      //Nodes before which we have to show the ghost state
+      std::map<int,int> ghostNodes;
+      //Transitions
       for (const auto& stateAndTransitions : result->transitions)
         for (const auto& transition : stateAndTransitions.second)
           for (const auto& targetState : transition.second){
             bool notSinks = sinks_set.find(stateAndTransitions.first)==sinks_set.end() && sinks_set.find(targetState)==sinks_set.end();
              if(notSinks && targetState!=0){
-               st << "\tq" << stateAndTransitions.first << " -> q" << targetState << "\n";
-               nodesLabels[targetState]=transition.first;
+               if(nodesLabels.find(targetState)==nodesLabels.end()){
+                 st << "\tq" << stateAndTransitions.first << " -> q" << targetState<< "\n";
+                 nodesLabels[targetState]=transition.first;
+               }
+               else{
+                 auto afterPointer = result->transitions.find(targetState);
+                 int actualTarget=-1;
+                 for(const auto& trans: afterPointer->second){
+                   for(const auto& possibleTarget: trans.second){
+                     if(sinks_set.find(possibleTarget)==sinks_set.end()&&possibleTarget!=0){
+                       actualTarget=possibleTarget;
+                     }
+                   }
+                 }
+                 int nodeNumber = result->state_count+ghostNodes.size();
+                 pair<int,int> entry(targetState,nodeNumber);
+                 ghostNodes.insert(entry);
+                 if(actualTarget!=-1){
+                   st<<"\tq"<<stateAndTransitions.first<<" -> q"<<nodeNumber<<"\n";
+                   st<<"\tq"<<nodeNumber<<" -> q"<<actualTarget<< "\n";
+                   nodesLabels[nodeNumber]=transition.first;
+                 }
+               }
              }
            }
       //Nodes Labels
@@ -91,23 +116,20 @@ class finite_state_automaton{
       }
       st<<"\n";
 
-      //Show clusters
-      oi=result->output_mapping.end();
-      --oi;
       int cluster=0;
       int stateShown=0;
       set<int> clustersShown;
       set<int> sinks = getSinks(*result);
       std::set<int>::iterator state = statesUsed.begin();
       int sinksFound=0;
-      st<<displayCluster(cluster,stateShown,clustersShown, state, sinks, sinksFound);
+      st<<displayCluster(cluster,stateShown,clustersShown, state, sinks, sinksFound,ghostNodes);
 
       st<<"}\n";
       getStatesInfo();
       return st.str();
   }
 
-  const string displayCluster(int cluster,int& statesShown,set<int>& clustersShown, std::set<int>::iterator& state, set<int>& sinks, int& sinksFound){
+  const string displayCluster(int cluster,int& statesShown,set<int>& clustersShown, std::set<int>::iterator& state, set<int>& sinks, int& sinksFound, map<int,int>& ghostNodes){
     stringstream st;
 
     st<<"\n\tsubgraph clusterR"<<cluster<<" {";
@@ -134,19 +156,19 @@ class finite_state_automaton{
         for(int i=0;i<states->size();++i){
           if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
               clustersShown.insert(i);
-              st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound);
+              st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound,ghostNodes);
           }
         }
       }
     }
-    while(statesInCluster<states->at(cluster)->statesNumber){
+    while(statesInCluster<(states->at(cluster)->statesNumber+states->at(cluster)->ghostStates)){
           int statesNumber=0;
           while(statesNumber!=statesShown){
             statesNumber=statesShown;
             for(int i=0;i<states->size();i++){
               if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
                   clustersShown.insert(i);
-                  st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound);
+                  st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound,ghostNodes);
               }
             }
           }
@@ -154,12 +176,19 @@ class finite_state_automaton{
             state=--statesUsed.end();
             sinksFound--;
           }
-          st<<"q"<<*state<<"; ";
-          statesUsed.erase(state);
-          --state;
+          if(ghostNodes.find(*state)!=ghostNodes.end()){
+            st<<"q"<<ghostNodes[*state]<<"; ";
+            ghostNodes.erase(*state);
+            ++(states->at(cluster)->ghostStates);
+          }
+          else{
+            st<<"q"<<*state<<"; ";
+            statesUsed.erase(state);
+            --state;
+          }
           ++statesShown;
           ++statesInCluster;
-        if(statesInCluster==states->at(cluster)->statesNumber){
+        if(statesInCluster==states->at(cluster)->statesNumber+states->at(cluster)->ghostStates){
             bool shown = false;
             int statesNumber=0;
             while(statesNumber!=statesShown){
@@ -169,7 +198,7 @@ class finite_state_automaton{
                   clustersShown.insert(i);
                   shown=true;
                   st<<"}\n";
-                  st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound);
+                  st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound,ghostNodes);
                 }
             }
           }
@@ -191,7 +220,7 @@ class finite_state_automaton{
       return -1;
     }
     int stateInClusterChecked=0;
-    while(stateInClusterChecked<states->at(cluster)->statesNumber){
+    while(stateInClusterChecked<states->at(cluster)->statesNumber + states->at(cluster)->ghostStates){
       int statesNumber = 0;
       while(statesNumber!=nodesChecked){
         statesNumber=nodesChecked;
@@ -213,7 +242,7 @@ class finite_state_automaton{
       }
       ++nodesChecked;
       ++stateInClusterChecked;
-      if(stateInClusterChecked==states->at(cluster)->statesNumber){
+      if(stateInClusterChecked==states->at(cluster)->statesNumber+states->at(cluster)->ghostStates){
         int statesNumber = 0;
         bool shown = false;
         while(statesNumber!=nodesChecked){
@@ -300,5 +329,26 @@ class finite_state_automaton{
   bool nodeIsExpandable(int node){
     set<int> sinks = getSinks(*result);
     return sinks.find(node)==sinks.end() && node<result->state_count && node>0;
+  }
+
+  void clearSinks(){
+    if(getSinks(*result).size()!=0){
+      bool sinkFound = false;
+      for(int i=0; i<states->size();++i){
+        if(states->at(i)->sink){
+          sinkFound=true;
+        }
+      }
+      if(!sinkFound){
+          states->at(states->size()-1)->statesNumber--;
+          states->at(states->size()-1)->sink=true;
+      }
+    }
+  }
+
+  void clearGhostStates(){
+    for(int i=0; i<states->size();++i){
+      states->at(i)->ghostStates=0;
+    }
   }
 };
