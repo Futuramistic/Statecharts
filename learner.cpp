@@ -44,7 +44,6 @@ class Learner{
         statesNotInCluster+=automata->states->at(i)->statesNumber;
       }
       int statesInNewCluster=states-statesNotInCluster+1;
-      automata->getStatesInfo();
       set<int> clustersChecked;
       //UPDATE POSSIBLE SHIFTS
       for(int i=0;i<automata->states->size();i++){
@@ -52,7 +51,6 @@ class Learner{
             automata->states->at(i)->stateExtended+=statesInNewCluster-1;
           }
       }
-
       int fatherCluster = -1;
       //SAME NODE EXPANDED CHECK
       for(int i=automata->states->size()-1;i>=0;--i){
@@ -71,17 +69,21 @@ class Learner{
       else{
           automata->states->at(fatherCluster)->statesNumber--;
       }
-      //Do not consider sinks
-      /**for(auto sink: getSinks(*automata->result)){
-          int cluster = automata->getClusterState(sink);
-          --automata->states->at(cluster)->statesNumber;
-      }**/
       automata->states->push_back(new Cluster(statesInNewCluster,node,oldAlphabetSize));
-      automata->getStatesInfo();
-      for(auto sink: getSinks(*automata->result)){
-        int cluster = automata->getClusterState(sink);
-        automata->states->at(cluster)->statesNumber--;
+
+      if(getSinks(*automata->result).size()!=0){
+        bool sinkFound = false;
+        for(int i=0; i<automata->states->size();++i){
+          if(automata->states->at(i)->sink){
+            sinkFound=true;
+          }
+        }
+        if(!sinkFound){
+            automata->states->at(automata->states->size()-1)->statesNumber--;
+            automata->states->at(automata->states->size()-1)->sink=true;
+        }
       }
+      automata->getStatesInfo();
     }
 
     /**

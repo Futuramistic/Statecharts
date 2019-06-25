@@ -16,10 +16,12 @@ class Cluster{
   int alphabetConnector;
   //
   int statesNumber;
+  bool sink;
   Cluster(int states,int extended, int connector){
     statesNumber=states;
     stateExtended=extended;
     alphabetConnector=connector;
+    sink=false;
   }
 };
 
@@ -28,7 +30,8 @@ class finite_state_automaton{
   std::vector<Cluster*>* states;
   finite_automaton* result;
   std::vector<list<int>> acceptedWords;
-  std::vector<std::vector<int>> statesUsed;
+  set<int> statesUsed;
+  int firstState;
   finite_state_automaton(){
     states = new std::vector<Cluster*>();
   }
@@ -36,7 +39,7 @@ class finite_state_automaton{
     delete states;
   }
 
-  string visualize() const
+  string visualize()
   {
     stringstream st;
     set<int>::iterator sti;
@@ -92,17 +95,19 @@ class finite_state_automaton{
       oi=result->output_mapping.end();
       --oi;
       int cluster=0;
-      int state=0;
+      int stateShown=0;
       set<int> clustersShown;
-      int wordPointer=0;
-      st<<displayCluster(cluster,state,clustersShown,wordPointer);
+      set<int> sinks = getSinks(*result);
+      std::set<int>::iterator state = statesUsed.begin();
+      int sinksFound=0;
+      st<<displayCluster(cluster,stateShown,clustersShown, state, sinks, sinksFound);
 
       st<<"}\n";
       getStatesInfo();
-    return st.str();
+      return st.str();
   }
 
-  const string displayCluster(int cluster,int& statesShown,set<int>& clustersShown, int& wordPointer) const{
+  const string displayCluster(int cluster,int& statesShown,set<int>& clustersShown, std::set<int>::iterator& state, set<int>& sinks, int& sinksFound){
     stringstream st;
 
     st<<"\n\tsubgraph clusterR"<<cluster<<" {";
@@ -111,73 +116,69 @@ class finite_state_automaton{
       for(int i=0;i<result->state_count;++i){
         st<<"q"<<i<<"; ";
       }
+      st<<"}\n";
       return st.str();
     }
     if(cluster==0){
       st<<"q0; ";
       ++statesInCluster;
       ++statesShown;
-      ++wordPointer;
       int statesNumber = 0;
+      if(sinks.size()!=0){
+          sinks.erase(sinks.begin());
+          ++sinksFound;
+      }
+      state=statesUsed.find(firstState);
       while(statesNumber!=statesShown){
         statesNumber=statesShown;
         for(int i=0;i<states->size();++i){
           if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
               clustersShown.insert(i);
-              st<<displayCluster(i,statesShown,clustersShown,wordPointer);
+              st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound);
           }
         }
       }
     }
-    set<int> sinks = getSinks(*result);
     while(statesInCluster<states->at(cluster)->statesNumber){
-      set<int> statesOfLetter;
-      for(auto statesCluster=statesUsed.begin(); statesCluster!=statesUsed.end(); statesCluster++){
-        if(wordPointer<statesCluster->size()&&sinks.find(statesCluster->at(wordPointer))==sinks.end()){
-          statesOfLetter.insert(statesCluster->at(wordPointer));
-        }
-      }
-      for(int state: statesOfLetter){
-        int statesNumber=0;
-        bool cluster=false;
-        while(statesNumber!=statesShown){
-          statesNumber=statesShown;
-          for(int i=0;i<states->size();i++){
-            if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
-                clustersShown.insert(i);
-                st<<displayCluster(i,statesShown,clustersShown,wordPointer);
-                cluster=true;
-            }
-          }
-        }
-        if(cluster){
-          break;
-        }
-        st<<"q"<<state<<"; ";
-        statesShown++;
-        statesInCluster++;
-      }
-      ++wordPointer;
-      if(statesInCluster==states->at(cluster)->statesNumber){
-          bool shown = false;
           int statesNumber=0;
           while(statesNumber!=statesShown){
-          statesNumber=statesShown;
-          for(int i=0;i<states->size();i++){
-            if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
-                clustersShown.insert(i);
-                shown=true;
-                st<<"}\n";
-                st<<displayCluster(i,statesShown,clustersShown,wordPointer);
+            statesNumber=statesShown;
+            for(int i=0;i<states->size();i++){
+              if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
+                  clustersShown.insert(i);
+                  st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound);
               }
+            }
+          }
+          if(sinksFound!=0&&statesInCluster==states->at(cluster)->statesNumber/2&&states->at(cluster)->sink){
+            state=--statesUsed.end();
+            sinksFound--;
+          }
+          st<<"q"<<*state<<"; ";
+          statesUsed.erase(state);
+          --state;
+          ++statesShown;
+          ++statesInCluster;
+        if(statesInCluster==states->at(cluster)->statesNumber){
+            bool shown = false;
+            int statesNumber=0;
+            while(statesNumber!=statesShown){
+            statesNumber=statesShown;
+            for(int i=0;i<states->size();i++){
+              if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
+                  clustersShown.insert(i);
+                  shown=true;
+                  st<<"}\n";
+                  st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound);
+                }
+            }
+          }
+          if(!shown){
+            st<<"}\n";
           }
         }
-        if(!shown){
-          st<<"}\n";
-        }
       }
-    }
-    return st.str();
+      return st.str();
   }
 
   const int getClusterState(int node) const{
@@ -253,44 +254,47 @@ class finite_state_automaton{
       cout<<"STATE EXTENDED: "<<states->at(i)->stateExtended<<" , NODES IN CLUSTER: ";
       cout<<states->at(i)->statesNumber<<" , ALPHABET CONNECTOR: "<<states->at(i)->alphabetConnector<<endl<<endl;
     }
-    cout<<"STATE USED IN WORDS: "<<endl;
-    for(int i=0;i<statesUsed.size();i++){
-      cout<<"Word: ";
-      for(int letter: acceptedWords.at(i)){
-        cout<<letter<<" ";
-      }
-      cout<<" STATES: ";
-      for(auto state=statesUsed.at(i).begin(); state!=statesUsed.at(i).end();state++){
-        cout<<*state<<" ";
-      }
-      cout<<endl;
+    cout<<"STATES USED: ";
+    for(auto state=statesUsed.begin(); state!=statesUsed.end();++state){
+      cout<<*state<<" ";
     }
+    cout<<endl;
+    cout<<"FIRST STATE: "<<firstState;
+    cout<<endl;
   }
 
   void getAllStatesUsed(){
     statesUsed.clear();
     set<int> sinks = getSinks(*result);
     for(auto word = acceptedWords.begin(); word!=acceptedWords.end(); ++word){
-      std::vector<int> wordStates;
+      set<int> wordStates;
       for(auto letter = word->begin(); letter!=word->end();++letter){
         set<int> letterStates = {0};
         result->run(letterStates, word->begin(), letter);
-        wordStates.insert(wordStates.end(),letterStates.begin(),letterStates.end());
+        wordStates.insert(letterStates.begin(),letterStates.end());
       }
-      wordStates.push_back(1);
-      wordStates.erase( std::unique( wordStates.begin(), wordStates.end() ), wordStates.end() );
+      wordStates.insert(1);
       if(sinks.size()==0){
-        statesUsed.push_back(wordStates);
+        statesUsed.insert(wordStates.begin(),wordStates.end());
       }
       else{
+        bool insert = true;
         for(auto sink: sinks){
-          if(std::find(wordStates.begin(), wordStates.end(), sink)==wordStates.end()){
-            statesUsed.push_back(wordStates);
+          if(wordStates.find(sink)!=wordStates.end()){
+            insert=false;
+            break;
+          }
+          if(insert){
+            statesUsed.insert(wordStates.begin(),wordStates.end());
           }
         }
       }
     }
-    statesUsed.erase( std::unique( statesUsed.begin(), statesUsed.end() ), statesUsed.end() );
+    set<int> check = {0};
+    std::list<int>::iterator it1 = (acceptedWords.begin())->begin();
+    std::list<int>::iterator it2 = ++(acceptedWords.begin())->begin();
+    result->run(check, it1, it2);
+    firstState = *check.begin();
   }
 
   bool nodeIsExpandable(int node){
