@@ -85,7 +85,7 @@ class finite_state_automaton{
           for (const auto& targetState : transition.second){
             bool notSinks = sinks_set.find(stateAndTransitions.first)==sinks_set.end() && sinks_set.find(targetState)==sinks_set.end();
              if(notSinks && targetState!=0){
-               if(nodesLabels.find(targetState)==nodesLabels.end()){
+               if(nodesLabels.find(targetState)==nodesLabels.end() || nodesLabes[targetState]==transition.first){
                  st << "\tq" << stateAndTransitions.first << " -> q" << targetState<< "\n";
                  nodesLabels[targetState]=transition.first;
                }
@@ -99,10 +99,10 @@ class finite_state_automaton{
                      }
                    }
                  }
-                 int nodeNumber = result->state_count+ghostNodes.size();
-                 pair<int,int> entry(targetState,nodeNumber);
-                 ghostNodes.insert(entry);
                  if(actualTarget!=-1){
+                   int nodeNumber = result->state_count+ghostNodes.size();
+                   pair<int,int> entry(targetState,nodeNumber);
+                   ghostNodes.insert(entry);
                    st<<"\tq"<<stateAndTransitions.first<<" -> q"<<nodeNumber<<"\n";
                    st<<"\tq"<<nodeNumber<<" -> q"<<actualTarget<< "\n";
                    nodesLabels[nodeNumber]=transition.first;
