@@ -20,11 +20,16 @@ class Cluster{
   bool sink;
   //Number of ghost states -> added artificially to the visualization
   int ghostStates;
+  //Number of ghost states, which influenced the state extended
+  int extensions;
+  
   Cluster(int states,int extended, int connector){
     statesNumber=states;
     stateExtended=extended;
     alphabetConnector=connector;
     sink=false;
+    extensions=0;
+    ghostStates=0;
   }
 };
 
@@ -85,7 +90,7 @@ class finite_state_automaton{
           for (const auto& targetState : transition.second){
             bool notSinks = sinks_set.find(stateAndTransitions.first)==sinks_set.end() && sinks_set.find(targetState)==sinks_set.end();
              if(notSinks && targetState!=0){
-               if(nodesLabels.find(targetState)==nodesLabels.end() || nodesLabes[targetState]==transition.first){
+               if(nodesLabels.find(targetState)==nodesLabels.end() || nodesLabels[targetState]==transition.first){
                  st << "\tq" << stateAndTransitions.first << " -> q" << targetState<< "\n";
                  nodesLabels[targetState]=transition.first;
                }
@@ -101,7 +106,7 @@ class finite_state_automaton{
                  }
                  if(actualTarget!=-1){
                    int nodeNumber = result->state_count+ghostNodes.size();
-                   pair<int,int> entry(targetState,nodeNumber);
+                   pair<int,int> entry(transition.first,nodeNumber);
                    ghostNodes.insert(entry);
                    st<<"\tq"<<stateAndTransitions.first<<" -> q"<<nodeNumber<<"\n";
                    st<<"\tq"<<nodeNumber<<" -> q"<<actualTarget<< "\n";
@@ -180,6 +185,12 @@ class finite_state_automaton{
             st<<"q"<<ghostNodes[*state]<<"; ";
             ghostNodes.erase(*state);
             ++(states->at(cluster)->ghostStates);
+            for(int i=0;i<cluster;++i){
+              if(states->at(cluster)->stateExtended<states->at(i)->stateExtended){
+                ++states->at(i)->extensions;
+                ++states->at(i)->stateExtended;
+              }
+            }
           }
           else{
             st<<"q"<<*state<<"; ";
@@ -295,28 +306,9 @@ class finite_state_automaton{
   void getAllStatesUsed(){
     statesUsed.clear();
     set<int> sinks = getSinks(*result);
-    for(auto word = acceptedWords.begin(); word!=acceptedWords.end(); ++word){
-      set<int> wordStates;
-      for(auto letter = word->begin(); letter!=word->end();++letter){
-        set<int> letterStates = {0};
-        result->run(letterStates, word->begin(), letter);
-        wordStates.insert(letterStates.begin(),letterStates.end());
-      }
-      wordStates.insert(1);
-      if(sinks.size()==0){
-        statesUsed.insert(wordStates.begin(),wordStates.end());
-      }
-      else{
-        bool insert = true;
-        for(auto sink: sinks){
-          if(wordStates.find(sink)!=wordStates.end()){
-            insert=false;
-            break;
-          }
-          if(insert){
-            statesUsed.insert(wordStates.begin(),wordStates.end());
-          }
-        }
+    for(int i=0; i<result->state_count; ++i){
+      if(sinks.find(i)==sinks.end()){
+        sinks.insert(i);
       }
     }
     set<int> check = {0};
@@ -331,16 +323,16 @@ class finite_state_automaton{
     return sinks.find(node)==sinks.end() && node<result->state_count && node>0;
   }
 
-  void clearSinks(){
+  void markSinks(){
     if(getSinks(*result).size()!=0){
       bool sinkFound = false;
       for(int i=0; i<states->size();++i){
         if(states->at(i)->sink){
           sinkFound=true;
+          return;
         }
       }
       if(!sinkFound){
-          states->at(states->size()-1)->statesNumber--;
           states->at(states->size()-1)->sink=true;
       }
     }
@@ -349,6 +341,32 @@ class finite_state_automaton{
   void clearGhostStates(){
     for(int i=0; i<states->size();++i){
       states->at(i)->ghostStates=0;
+      states->at(i)->stateExtended-=states->at(i)->extensions;
+      states->at(i)->extensions=0;
     }
   }
+
+  void updateFatherCluster(int node){
+    set<int> clustersChecked;
+    int fatherCluster = -1;
+    //SAME NODE EXPANDED CHECK
+    for(int i=states->size()-1;i>=0;--i){
+      if(node==states->at(i)->stateExtended){
+        fatherCluster=i;
+        break;
+      }
+    }
+    //DIFFERENT NODE EXPANDED -> GET FATHER CLUSTER
+    if(fatherCluster==-1){
+      fatherCluster=getClusterByState(node,0,clustersChecked,0);
+    }
+    if(fatherCluster==states->size()){
+        //THROW ERROR -> SHOULD NOT BE POSSIBLE!
+    }
+    else{
+        states->at(fatherCluster)->statesNumber--;
+    }
+  }
+
+
 };

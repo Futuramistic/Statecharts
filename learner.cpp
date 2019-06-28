@@ -29,7 +29,13 @@ class Learner{
       teacher->expandAlphabet();
       int change = teacher->getAlphabetSize()-oldAlphabetSize;
       if(automata->states->size()==0){
+        if(getSinks(*automata->result).size()>0){
+        automata->states->push_back(new Cluster(automata->result->state_count-1,-1,0));
+        automata->states->at(0)->sink=true;
+        }
+        else{
         automata->states->push_back(new Cluster(automata->result->state_count,-1,0));
+        }
       }
       //Save previously smallest accepted word and clear knowledge
       //list<int> acceptedWord = getSmallestAcceptedWord();
@@ -44,34 +50,18 @@ class Learner{
         statesNotInCluster+=automata->states->at(i)->statesNumber;
       }
       int statesInNewCluster=states-statesNotInCluster+1;
-      set<int> clustersChecked;
+      if(getSinks(*automata->result).size()>0){
+        --statesInNewCluster;
+      }
       //UPDATE POSSIBLE SHIFTS
       for(int i=0;i<automata->states->size();i++){
           if(node<automata->states->at(i)->stateExtended){
             automata->states->at(i)->stateExtended+=statesInNewCluster-1;
           }
       }
-      int fatherCluster = -1;
-      //SAME NODE EXPANDED CHECK
-      for(int i=automata->states->size()-1;i>=0;--i){
-        if(node==automata->states->at(i)->stateExtended){
-          fatherCluster=i;
-          break;
-        }
-      }
-      //DIFFERENT NODE EXPANDED -> GET FATHER CLUSTER
-      if(fatherCluster==-1){
-        fatherCluster=automata->getClusterByState(node,0,clustersChecked,0);
-      }
-      if(fatherCluster==automata->states->size()){
-          //THROW ERROR -> SHOULD NOT BE POSSIBLE!
-      }
-      else{
-          automata->states->at(fatherCluster)->statesNumber--;
-      }
+      automata->updateFatherCluster(node);
       automata->states->push_back(new Cluster(statesInNewCluster,node,oldAlphabetSize));
-
-      automata->clearSinks();
+      automata->markSinks();
       automata->clearGhostStates();
       automata->getStatesInfo();
     }
