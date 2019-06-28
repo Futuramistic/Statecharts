@@ -115,7 +115,7 @@ class finite_state_automaton{
                  if(actualTarget!=-1){
                    //update information about ghost node and display transitions
                    int nodeNumber = result->state_count+ghostNodes.size();
-                   pair<int,int> entry(transition.first,nodeNumber);
+                   pair<int,int> entry(targetState,nodeNumber);
                    ghostNodes.insert(entry);
                    st<<"\tq"<<stateAndTransitions.first<<" -> q"<<nodeNumber<<"\n";
                    st<<"\tq"<<nodeNumber<<" -> q"<<actualTarget<< "\n";
@@ -313,7 +313,7 @@ class finite_state_automaton{
     set<int> sinks = getSinks(*result);
     for(int i=0; i<result->state_count; ++i){
       if(sinks.find(i)==sinks.end()){
-        sinks.insert(i);
+        statesUsed.insert(i);
       }
     }
     set<int> check = {0};
