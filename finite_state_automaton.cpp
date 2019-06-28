@@ -22,7 +22,7 @@ class Cluster{
   int ghostStates;
   //Number of ghost states, which influenced the state extended
   int extensions;
-  
+
   Cluster(int states,int extended, int connector){
     statesNumber=states;
     stateExtended=extended;
@@ -35,14 +35,19 @@ class Cluster{
 
 class finite_state_automaton{
   public:
+  //Previously expanded clusters
   std::vector<Cluster*>* states;
+  //Underlying finite automaton
   finite_automaton* result;
   std::vector<list<int>> acceptedWords;
   set<int> statesUsed;
+  //First state used in automata
   int firstState;
+
   finite_state_automaton(){
     states = new std::vector<Cluster*>();
   }
+
   ~finite_state_automaton(){
     delete states;
   }
@@ -89,12 +94,15 @@ class finite_state_automaton{
         for (const auto& transition : stateAndTransitions.second)
           for (const auto& targetState : transition.second){
             bool notSinks = sinks_set.find(stateAndTransitions.first)==sinks_set.end() && sinks_set.find(targetState)==sinks_set.end();
+            //check if nodes are not sink or do not lead to node 0
              if(notSinks && targetState!=0){
+               //check if ghost node should be introduced
                if(nodesLabels.find(targetState)==nodesLabels.end() || nodesLabels[targetState]==transition.first){
                  st << "\tq" << stateAndTransitions.first << " -> q" << targetState<< "\n";
                  nodesLabels[targetState]=transition.first;
                }
                else{
+                 //find start and end point of ghost node
                  auto afterPointer = result->transitions.find(targetState);
                  int actualTarget=-1;
                  for(const auto& trans: afterPointer->second){
@@ -105,6 +113,7 @@ class finite_state_automaton{
                    }
                  }
                  if(actualTarget!=-1){
+                   //update information about ghost node and display transitions
                    int nodeNumber = result->state_count+ghostNodes.size();
                    pair<int,int> entry(transition.first,nodeNumber);
                    ghostNodes.insert(entry);
@@ -120,14 +129,14 @@ class finite_state_automaton{
         st<<"\tq"<<label.first<<"[label=\""<<label.second<<"\"];\n";
       }
       st<<"\n";
-
+      cout<<"HEEEEY";
       int cluster=0;
       int stateShown=0;
       set<int> clustersShown;
       set<int> sinks = getSinks(*result);
       std::set<int>::iterator state = statesUsed.begin();
       int sinksFound=0;
-      st<<displayCluster(cluster,stateShown,clustersShown, state, sinks, sinksFound,ghostNodes);
+      st<<displayCluster(cluster,stateShown,clustersShown,state,sinks,sinksFound,ghostNodes);
 
       st<<"}\n";
       getStatesInfo();
@@ -156,17 +165,9 @@ class finite_state_automaton{
           ++sinksFound;
       }
       state=statesUsed.find(firstState);
-      while(statesNumber!=statesShown){
-        statesNumber=statesShown;
-        for(int i=0;i<states->size();++i){
-          if(statesShown==states->at(i)->stateExtended && clustersShown.find(i)==clustersShown.end()){
-              clustersShown.insert(i);
-              st<<displayCluster(i,statesShown,clustersShown, state, sinks, sinksFound,ghostNodes);
-          }
-        }
-      }
     }
     while(statesInCluster<(states->at(cluster)->statesNumber+states->at(cluster)->ghostStates)){
+          //check for new cluster expansion
           int statesNumber=0;
           while(statesNumber!=statesShown){
             statesNumber=statesShown;
@@ -177,14 +178,17 @@ class finite_state_automaton{
               }
             }
           }
+          //If cluster had a sink state, flip the state in the middle
           if(sinksFound!=0&&statesInCluster==states->at(cluster)->statesNumber/2&&states->at(cluster)->sink){
             state=--statesUsed.end();
             sinksFound--;
           }
+          //if ghost node exists before next state, show it
           if(ghostNodes.find(*state)!=ghostNodes.end()){
             st<<"q"<<ghostNodes[*state]<<"; ";
             ghostNodes.erase(*state);
             ++(states->at(cluster)->ghostStates);
+            //reallocate state extended by new ghost state
             for(int i=0;i<cluster;++i){
               if(states->at(cluster)->stateExtended<states->at(i)->stateExtended){
                 ++states->at(i)->extensions;
@@ -200,6 +204,7 @@ class finite_state_automaton{
           ++statesShown;
           ++statesInCluster;
         if(statesInCluster==states->at(cluster)->statesNumber+states->at(cluster)->ghostStates){
+            //recheck node expansion before exiting the loop
             bool shown = false;
             int statesNumber=0;
             while(statesNumber!=statesShown){
@@ -319,8 +324,20 @@ class finite_state_automaton{
   }
 
   bool nodeIsExpandable(int node){
-    set<int> sinks = getSinks(*result);
-    return sinks.find(node)==sinks.end() && node<result->state_count && node>0;
+    int expandableNodes;
+    if(states->size()>0){
+      for(int i=0; i<states->size();++i){
+        expandableNodes+=states->at(i)->statesNumber;
+        expandableNodes+=states->at(i)->ghostStates;
+      }
+    }
+    else{
+      expandableNodes=result->state_count;
+      if(getSinks(*result).size()!=0){
+        --expandableNodes;
+      }
+    }
+    return expandableNodes=node;
   }
 
   void markSinks(){
