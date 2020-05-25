@@ -3,8 +3,9 @@ Reasearch project for King's College London. The project was never fully finishe
 
 ## Creation of hierarchical view of the program and detection of unreachable paths - original program
 The project uses Libalf library to transform the input code into a state chart
-<img src="http://www.cprover.org/learning-errors/automata/_merge_sort_false-2-7.svg">
 User specifies, which methods should be inspected by the program.
+
+<img src="http://www.cprover.org/learning-errors/automata/_merge_sort_false-2-7.svg" align="center">
 
 Authors: 
 * Martin Chapman, Department of Informatics, King's College London, UK
